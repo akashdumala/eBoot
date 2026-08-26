@@ -26,6 +26,7 @@
 #include "eos_crypto_boot.h"
 #include "eos_types.h"
 #include <string.h>
+#include "eos_sha512.h"
 
 /* ================================================================
  * Field arithmetic for Curve25519 (mod p = 2^255 - 19)
@@ -690,22 +691,18 @@ int eos_ed25519_verify(const uint8_t signature[64],
         return EOS_ERR_SIGNATURE;
 
     /* Step 3: Compute k = SHA-256(R || A || M) reduced mod L */
-    eos_sha256_ctx_t ctx;
-    uint8_t k_hash[EOS_SHA256_DIGEST_SIZE];
+    /* Step 3: Compute k = SHA-512(R || A || M) reduced mod L */
+uint8_t k_hash[64];
+sha512_ctx_t ctx;
 
-    eos_sha256_init(&ctx);
-    eos_sha256_update(&ctx, signature, 32);       /* R */
-    eos_sha256_update(&ctx, public_key, 32);      /* A */
-    eos_sha256_update(&ctx, message, msg_len);    /* M */
-    eos_sha256_final(&ctx, k_hash);
+sha512_init(&ctx);
+sha512_update(&ctx, signature, 32);       /* R */
+sha512_update(&ctx, public_key, 32);      /* A */
+sha512_update(&ctx, message, msg_len);    /* M */
+sha512_final(&ctx, k_hash);
 
-    /* Expand hash to 64 bytes for sc_reduce (pad with zeros) */
-    uint8_t k_expanded[64];
-    memcpy(k_expanded, k_hash, 32);
-    memset(k_expanded + 32, 0, 32);
-
-    uint8_t k[32];
-    sc_reduce(k, k_expanded);
+uint8_t k[32];
+sc_reduce(k, k_hash);
 
     /* Step 4: Compute [S]B */
     const uint8_t *S = &signature[32];
