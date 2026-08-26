@@ -136,15 +136,13 @@ static int recovery_handle_auth(void)
     }
 
     if (auth_state == RCVR_AUTH_NONE) {
-        /* Generate challenge using RNG */
+        /* Generate challenge using the hardware RNG. */
         int rc = eos_hal_rng_get(challenge, RCVR_CHALLENGE_SIZE);
         if (rc != EOS_OK) {
-            /* Fallback: use tick-based pseudo-random */
-            uint32_t seed = eos_hal_get_tick_ms();
-            for (int i = 0; i < RCVR_CHALLENGE_SIZE; i++) {
-                seed = seed * 1103515245 + 12345;
-                challenge[i] = (uint8_t)(seed >> 16);
-            }
+            /* Never fall back to a predictable challenge source. */
+            memset(challenge, 0, sizeof(challenge));
+            auth_state = RCVR_AUTH_NONE;
+            return recovery_send_nack();
         }
 
         /* Send challenge to client */
